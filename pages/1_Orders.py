@@ -7,19 +7,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 import database as db
 from utils.calculations import (
-    calc_order_feasibility, build_scenario, today_str, parse_date, fmt_date
+    calc_order_feasibility, build_scenario, parse_date, fmt_date
 )
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Orders — Oflex3", layout="wide", page_icon="📋")
-if "db_ready" not in st.session_state:
-    db.init_db()
-    st.session_state.db_ready = True
-
-st.title("📋 Orders")
+st.title("Orders")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 params      = db.get_params()
@@ -36,7 +30,7 @@ color_map  = {c["id"]: c["name"] for c in colors}
 model_opts = {m["name"]: m["id"] for m in models}
 color_opts = {c["name"]: c["id"] for c in colors}
 
-tabs = st.tabs(["📋 Order List", "✅ Feasibility Check", "📈 Production Impact"])
+tabs = st.tabs(["Order List", "Feasibility Check", "Production Impact"])
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -47,7 +41,7 @@ with tabs[0]:
     orders = db.get_orders()
 
     # ── Add / Edit order form ─────────────────────────────────────
-    with st.expander("➕ Add / Edit Order", expanded=not orders):
+    with st.expander("Add / Edit Order", expanded=not orders):
         edit_mode = st.radio("Action", ["New Order", "Edit Existing"], horizontal=True)
         editing_order = None
 
@@ -107,7 +101,7 @@ with tabs[0]:
                                             key=f"lq_{i}")
                 line_data.append({"model_id": model_opts[sel_m], "color_id": color_opts[sel_c], "quantity": qty})
 
-            submitted = st.form_submit_button("💾 Save Order", type="primary")
+            submitted = st.form_submit_button("Save Order", type="primary")
             if submitted:
                 if not models or not colors:
                     st.error("Configure models and colors in Parameters first.")
@@ -160,7 +154,7 @@ with tabs[0]:
         st.markdown("**Delete an Order**")
         del_ref = st.selectbox("Select order to delete", ["—"] + [o["order_ref"] for o in orders])
         if del_ref != "—":
-            if st.button(f"🗑️ Delete {del_ref}", type="secondary"):
+            if st.button(f"Delete {del_ref}", type="secondary"):
                 order_to_del = next((o for o in orders if o["order_ref"] == del_ref), None)
                 if order_to_del:
                     db.delete_order(order_to_del["id"])
@@ -197,12 +191,11 @@ with tabs[1]:
             at_risk  = f.get("at_risk", False)
             from_stock = f.get("from_stock", False)
 
-            badge = "🔴" if at_risk else ("🟢" if from_stock else "🟡")
             status_label = ("From stock" if from_stock else
                             f"Needs production (est. {f['max_lt_days']:.0f} days)")
 
             with st.container():
-                st.markdown(f"### {badge} {f['order_ref']} — {f['customer_name']}")
+                st.markdown(f"### {f['order_ref']} — {f['customer_name']}")
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Deadline",      f["deadline"])
                 c2.metric("Est. Delivery", f["est_delivery"])
@@ -210,7 +203,7 @@ with tabs[1]:
                 c4.metric("Status",        status_label)
 
                 if at_risk:
-                    st.error(f"⚠️ At risk: estimated delivery {f['est_delivery']} is after deadline {f['deadline']}")
+                    st.error(f"At risk: estimated delivery {f['est_delivery']} is after deadline {f['deadline']}")
 
                 detail_df = pd.DataFrame(f["line_details"])
                 if not detail_df.empty:
@@ -219,7 +212,7 @@ with tabs[1]:
                         "avail":"Available","lt_days":"Lead Time (days)",
                         "state_name":"Best Available State","from_stock":"In Stock?"
                     }, inplace=True)
-                    detail_df["In Stock?"] = detail_df["In Stock?"].map({True:"✅",False:"❌"})
+                    detail_df["In Stock?"] = detail_df["In Stock?"].map({True:"Yes",False:"No"})
                     st.dataframe(detail_df[["Model","Color","Ordered","Available","In Stock?",
                                             "Lead Time (days)","Best Available State"]],
                                  use_container_width=True, hide_index=True)
@@ -329,8 +322,8 @@ with tabs[2]:
                 })
 
         if conflicts:
-            st.warning("⚠️ Stock conflicts detected between orders:")
+            st.warning("Stock conflicts detected between orders:")
             st.dataframe(pd.DataFrame(conflicts), use_container_width=True, hide_index=True)
             st.caption("Set order priorities to resolve conflicts — orders with lower priority number are fulfilled first.")
         else:
-            st.success("✅ No stock conflicts detected between pending orders.")
+            st.success("No stock conflicts detected between pending orders.")

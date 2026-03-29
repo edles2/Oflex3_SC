@@ -9,13 +9,8 @@ import streamlit as st
 import pandas as pd
 import database as db
 
-st.set_page_config(page_title="Parameters — Oflex3", layout="wide", page_icon="⚙️")
-if "db_ready" not in st.session_state:
-    db.init_db()
-    st.session_state.db_ready = True
-
-st.title("⚙️ Parameters")
-tabs = st.tabs(["🌐 Global Settings", "🔄 Production States", "🪑 Chair Models", "🎨 Colors"])
+st.title("Parameters")
+tabs = st.tabs(["Global Settings", "Production States", "Chair Models", "Colors"])
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -42,7 +37,7 @@ with tabs[0]:
         s_lean = st.number_input("Lean multiplier",         min_value=0.1, max_value=5.0,
                                   value=float(params.get("safety_lean",  0.6)), step=0.1)
 
-    if st.button("💾 Save Global Settings", type="primary"):
+    if st.button("Save Global Settings", type="primary"):
         db.set_param("total_storage_m3",      storage)
         db.set_param("working_days_per_week",  wpw)
         db.set_param("working_weeks_per_year", wpy)
@@ -90,11 +85,11 @@ with tabs[1]:
 
     col_a, col_b = st.columns([1,4])
     with col_a:
-        if st.button("🔄 Recalculate Days from Weeks"):
+        if st.button("Recalculate Days from Weeks"):
             edited["Lead Time (days)"] = edited["Lead Time (weeks)"] * dpw
 
     with col_b:
-        if st.button("💾 Save Production States", type="primary"):
+        if st.button("Save Production States", type="primary"):
             records = []
             for _, row in edited.iterrows():
                 records.append({
@@ -134,7 +129,7 @@ with tabs[2]:
 
     col_save, col_del = st.columns([1,3])
     with col_save:
-        if st.button("💾 Save Model List", type="primary"):
+        if st.button("Save Model List", type="primary"):
             for _, row in edited_models.iterrows():
                 mid = row.get("id")
                 if pd.isna(row["Model Name"]) or row["Model Name"] == "":
@@ -189,7 +184,7 @@ with tabs[2]:
             key=f"sp_editor_{mid}",
         )
 
-        if st.button(f"💾 Save State Params for {selected_name}", type="primary"):
+        if st.button(f"Save State Params for {selected_name}", type="primary"):
             for _, row in edited_sp.iterrows():
                 db.upsert_model_state_params(
                     model_id=mid,
@@ -231,7 +226,7 @@ with tabs[2]:
             key=f"mats_editor_{mid}",
         )
 
-        if st.button(f"💾 Save Raw Materials for {selected_name}", type="primary"):
+        if st.button(f"Save Raw Materials for {selected_name}", type="primary"):
             # Delete and re-insert
             for m in mats:
                 db.delete_raw_material(m["id"])
@@ -273,7 +268,7 @@ with tabs[3]:
         key="color_editor",
     )
 
-    if st.button("💾 Save Colors", type="primary"):
+    if st.button("Save Colors", type="primary"):
         edited_ids = set()
         for _, row in edited_colors.iterrows():
             if pd.isna(row.get("Color Name")) or row.get("Color Name","") == "":

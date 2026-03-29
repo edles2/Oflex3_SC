@@ -15,12 +15,7 @@ from utils.calculations import (
 )
 from utils.optimization import optimize_storage_allocation, tradeoff_curve, build_launch_plan
 
-st.set_page_config(page_title="Inventory & Production — Oflex3", layout="wide", page_icon="📦")
-if "db_ready" not in st.session_state:
-    db.init_db()
-    st.session_state.db_ready = True
-
-st.title("📦 Inventory & Production Model")
+st.title("Inventory & Production Model")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 params     = db.get_params()
@@ -40,10 +35,10 @@ s_std         = float(params.get("safety_standard", 1.0))
 s_lean        = float(params.get("safety_lean", 0.6))
 
 if not models:
-    st.info("👆 No chair models configured yet. Go to **Parameters** to add models.")
+    st.info("No chair models configured yet. Go to **Parameters** to add models.")
     st.stop()
 
-tabs = st.tabs(["📊 Real-Time Snapshot", "🔮 Scenario Planning", "⚙️ Optimization Engine"])
+tabs = st.tabs(["Real-Time Snapshot", "Scenario Planning", "Optimization Engine"])
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -98,14 +93,14 @@ with tabs[0]:
     col_a.metric("Storage Used", f"{total_used:.1f} m³", delta=f"{total_used - total_storage:.1f} m³ vs capacity")
     col_b.metric("Storage Capacity", f"{total_storage:.0f} m³")
     if total_used > total_storage:
-        st.error(f"⚠️ Storage over capacity by {total_used - total_storage:.1f} m³!")
+        st.error(f"Storage over capacity by {total_used - total_storage:.1f} m³!")
 
     # KANBAN alerts
     kb_map = {(p["model_id"], p["state_id"]): p["kanban_threshold"] for p in msp}
     for _, row in df_inv.iterrows():
         kb = kb_map.get((row["model_id"], row["state_id"]))
         if kb and row["Quantity"] < kb:
-            st.warning(f"🔴 KANBAN alert: **{row['Model']}** at **{row['State']}** — qty {int(row['Quantity'])} below threshold {kb}")
+            st.warning(f"KANBAN alert: **{row['Model']}** at **{row['State']}** — qty {int(row['Quantity'])} below threshold {kb}")
 
     display_cols = ["Model","State","Color","Quantity","Storage (m³)"]
     edited_inv = st.data_editor(
@@ -122,7 +117,7 @@ with tabs[0]:
         key="inv_editor",
     )
 
-    if st.button("💾 Save Inventory Snapshot", type="primary"):
+    if st.button("Save Inventory Snapshot", type="primary"):
         db.clear_inventory()
         for _, row in edited_inv.iterrows():
             db.upsert_inventory(
@@ -156,7 +151,7 @@ with tabs[0]:
         use_container_width=True,
         key="dem_editor",
     )
-    if st.button("💾 Save Demand Settings", type="primary"):
+    if st.button("Save Demand Settings", type="primary"):
         for _, row in edited_dem.iterrows():
             db.upsert_demand(int(row["model_id"]), int(row["color_id"]), float(row["Weekly Demand"]))
         st.success("Demand settings saved.")
@@ -170,14 +165,14 @@ with tabs[1]:
     st.subheader("Scenario Planning")
 
     scenario_cfg = {
-        "Conservative": (s_cons, "🔵"),
-        "Standard":     (s_std,  "🟢"),
-        "Lean":         (s_lean, "🟡"),
+        "Conservative": s_cons,
+        "Standard":     s_std,
+        "Lean":         s_lean,
     }
 
     sel_scenario = st.radio("Scenario", list(scenario_cfg.keys()), horizontal=True, index=1)
-    safety, icon = scenario_cfg[sel_scenario]
-    st.caption(f"{icon} **{sel_scenario}** — safety multiplier: **{safety}×**")
+    safety = scenario_cfg[sel_scenario]
+    st.caption(f"**{sel_scenario}** — safety multiplier: **{safety}×**")
 
     # Re-load demand (might have changed)
     demand_raw = db.get_demand_settings()
@@ -188,6 +183,7 @@ with tabs[1]:
         safety_mult=safety, days_per_week=dpw, total_storage_m3=total_storage,
     )
 
+
     # Storage summary
     col1, col2, col3 = st.columns(3)
     col1.metric("Target Storage",   f"{scenario['total_storage_needed_m3']:.1f} m³")
@@ -195,7 +191,7 @@ with tabs[1]:
     col3.metric("Capacity",         f"{total_storage:.0f} m³",
                 delta=f"{scenario['total_storage_needed_m3'] - total_storage:.1f} m³" if scenario["over_capacity"] else "OK")
     if scenario["over_capacity"]:
-        st.warning("⚠️ Target stock exceeds storage capacity. Consider the Optimization Engine tab.")
+        st.warning("Target stock exceeds storage capacity. Consider the Optimization Engine tab.")
 
     # Scenario table
     s_df = pd.DataFrame(scenario["rows"])
@@ -216,7 +212,7 @@ with tabs[1]:
             "storage_target_m3":"Target Storage (m³)",
             "storage_current_m3":"Current Storage (m³)",
         })
-        health_colors = {"ok":"🟢","low":"🟡","critical":"🔴","excess":"🟠"}
+        health_colors = {"ok":"OK","low":"Low","critical":"Critical","excess":"Excess"}
         s_df_display["Health"] = s_df_display["Health"].map(lambda x: health_colors.get(x, x))
         st.dataframe(s_df_display, use_container_width=True, hide_index=True)
 
@@ -268,7 +264,7 @@ with tabs[2]:
     sel_opt_scenario = st.radio("Base scenario for optimization",
                                 list(scenario_cfg.keys()), horizontal=True,
                                 index=1, key="opt_scenario")
-    opt_safety, _ = scenario_cfg[sel_opt_scenario]
+    opt_safety = scenario_cfg[sel_opt_scenario]
 
     demand_raw = db.get_demand_settings()
     inventory  = db.get_inventory()

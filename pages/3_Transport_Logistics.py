@@ -9,15 +9,10 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import database as db
-from utils.calculations import estimate_delivery_days, parse_date, fmt_date
+from utils.calculations import estimate_delivery_days, fmt_date
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Transport & Logistics — Oflex3", layout="wide", page_icon="🚛")
-if "db_ready" not in st.session_state:
-    db.init_db()
-    st.session_state.db_ready = True
-
-st.title("🚛 Transport & Logistics")
+st.title("Transport & Logistics")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 params    = db.get_params()
@@ -28,7 +23,7 @@ msp       = db.get_model_state_params()
 inventory = db.get_inventory()
 dpw       = int(params.get("working_days_per_week", 5))
 
-tabs = st.tabs(["🏭 Logistics Network", "🗺️ Transport Parameters", "📦 Delivery Planning"])
+tabs = st.tabs(["Logistics Network", "Transport Parameters", "Delivery Planning"])
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -61,7 +56,7 @@ with tabs[0]:
         key="lc_editor",
     )
 
-    if st.button("💾 Save Logistics Centers", type="primary"):
+    if st.button("Save Logistics Centers", type="primary"):
         edited_ids = set()
         for _, row in edited_c.iterrows():
             if pd.isna(row.get("Center Name")) or row.get("Center Name","") == "":
@@ -146,7 +141,7 @@ with tabs[1]:
             key="routes_editor",
         )
 
-        if st.button("💾 Save Transport Routes", type="primary"):
+        if st.button("Save Transport Routes", type="primary"):
             name_to_id = {v: k for k, v in center_options.items()}
             edited_ids = set()
             for _, row in edited_r.iterrows():
@@ -198,7 +193,7 @@ with tabs[2]:
             dest       = st.text_input("Destination", placeholder="e.g. Germany")
             req_date   = st.date_input("Required delivery date")
 
-        if st.button("🔍 Estimate Delivery", type="primary"):
+        if st.button("Estimate Delivery", type="primary"):
             model  = next((m for m in models if m["name"] == sel_model), None)
             color  = next((c for c in colors if c["name"] == sel_color), None)
 
@@ -241,18 +236,18 @@ with tabs[2]:
                         if best_route["shared_truck"] and truck_cap > 0:
                             fill_pct = order_vol / truck_cap * 100
                             if fill_pct < 80:
-                                st.warning(f"⚠️ Partial truck load: order fills {fill_pct:.0f}% of {truck_cap:.0f} m³ truck. "
+                                st.warning(f"Partial truck load: order fills {fill_pct:.0f}% of {truck_cap:.0f} m³ truck. "
                                            f"Consider consolidating with other orders.")
                             else:
-                                st.success(f"✅ Good truck utilization: {fill_pct:.0f}% of {truck_cap:.0f} m³")
+                                st.success(f"Good truck utilization: {fill_pct:.0f}% of {truck_cap:.0f} m³")
 
                     # Risk check
                     req_dt = datetime.combine(req_date, datetime.min.time())
                     if est_delivery > req_dt:
                         days_late = (est_delivery - req_dt).days
-                        st.error(f"❌ Cannot meet deadline — estimated {days_late} days late.")
+                        st.error(f"Cannot meet deadline — estimated {days_late} days late.")
                     else:
-                        st.success(f"✅ Can meet deadline with {(req_dt - est_delivery).days} days buffer.")
+                        st.success(f"Can meet deadline with {(req_dt - est_delivery).days} days buffer.")
 
                     # Route summary table
                     st.markdown("**Available Routes**")

@@ -1,6 +1,5 @@
 """
-Page 5 — Dashboard
-KPIs, stock health heatmap, upcoming actions and order deadlines.
+Dashboard — KPIs, stock health heatmap, upcoming actions and order deadlines.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,16 +10,11 @@ import plotly.graph_objects as go
 import plotly.express as px
 import database as db
 from utils.calculations import (
-    build_scenario, calc_storage_used, calc_order_feasibility, parse_date
+    build_scenario, calc_order_feasibility, parse_date
 )
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Dashboard — Oflex3", layout="wide", page_icon="📊")
-if "db_ready" not in st.session_state:
-    db.init_db()
-    st.session_state.db_ready = True
-
-st.title("📊 Dashboard — Overview")
+st.title("Dashboard — Overview")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 params      = db.get_params()
@@ -40,7 +34,7 @@ s_std         = float(params.get("safety_standard",  1.0))
 s_lean        = float(params.get("safety_lean",  0.6))
 
 if not models:
-    st.info("👆 No data configured yet. Start with the **Parameters** page.")
+    st.info("No data configured yet. Start with the **Parameters** page.")
     st.stop()
 
 # ── Scenario toggle ───────────────────────────────────────────────────────────
@@ -72,7 +66,6 @@ k4.metric("Orders at Risk",    len(at_risk),
 k5.metric("Total Models",      len(models))
 k6.metric("Total Colors",      len(colors))
 
-# Average delivery time by model
 if feasibility:
     avg_lt = sum(f["max_lt_days"] for f in feasibility) / len(feasibility)
     st.caption(f"Average delivery lead time across pending orders: **{avg_lt:.0f} days**")
@@ -81,10 +74,9 @@ st.divider()
 
 # ── Stock Health Heatmap ──────────────────────────────────────────────────────
 st.subheader("Stock Health Heatmap (Model × State)")
-st.caption("🟢 OK  🟡 Low  🔴 Critical (below KANBAN)  🟠 Excess")
+st.caption("OK (green)  |  Low (yellow)  |  Critical — below KANBAN (red)  |  Excess (orange)")
 
 health_score = {"ok": 2, "low": 1, "critical": 0, "excess": 3}
-color_map_h  = {0: "#e74c3c", 1: "#f39c12", 2: "#2ecc71", 3: "#e67e22"}
 
 heatmap_rows = scenario["rows"]
 if heatmap_rows:
@@ -93,11 +85,9 @@ if heatmap_rows:
         index="model_name", columns="state_name",
         values="health", aggfunc="first"
     )
-    # Order columns by state order
     state_order = {s["name"]: s["order_index"] for s in states}
     pivot = pivot.reindex(columns=sorted(pivot.columns, key=lambda x: state_order.get(x, 99)))
 
-    # Build numeric heatmap
     numeric_pivot = pivot.applymap(lambda x: health_score.get(x, -1) if pd.notna(x) else -1)
     z_text = pivot.applymap(lambda x: {"ok":"OK","low":"Low","critical":"Critical","excess":"Excess"}.get(x,"—") if pd.notna(x) else "—")
 
@@ -126,28 +116,27 @@ st.divider()
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.subheader("⚡ Upcoming Production Actions")
+    st.subheader("Upcoming Production Actions")
     st.caption("Sorted by urgency (shortest leadtime first)")
     actions = sorted(
         [r for r in scenario["rows"] if r["production_needed"] > 0],
         key=lambda r: r["leadtime_days"],
     )
     if not actions:
-        st.success("✅ No immediate production launches required.")
+        st.success("No immediate production launches required.")
     else:
         for a in actions[:10]:
-            urgency = "🔴" if a["health"] == "critical" else "🟡"
             with st.container():
                 st.markdown(
-                    f"{urgency} **{a['model_name']}** @ {a['state_name']}  \n"
+                    f"**{a['model_name']}** @ {a['state_name']}  \n"
                     f"Launch **{int(a['production_needed'])} units** "
                     f"(current: {a['current_stock']}, target: {a['target_stock']:.0f})"
                 )
         if len(actions) > 10:
-            st.caption(f"… and {len(actions) - 10} more. See Inventory & Production page.")
+            st.caption(f"... and {len(actions) - 10} more. See Inventory & Production page.")
 
 with col_right:
-    st.subheader("📅 Upcoming Order Deadlines (next 4 weeks)")
+    st.subheader("Upcoming Order Deadlines (next 4 weeks)")
     today = datetime.now()
     horizon = today + timedelta(weeks=4)
 
@@ -171,8 +160,8 @@ with col_right:
         st.info("No order deadlines in the next 4 weeks.")
     else:
         for u in upcoming:
-            badge = "🔴" if u["At Risk"] else "🟢"
-            st.markdown(f"{badge} **{u['Ref']}** — {u['Customer']}  \nDeadline: **{u['Deadline']}** | Priority: {u['Priority']} | Status: {u['Status']}")
+            risk_label = " [AT RISK]" if u["At Risk"] else ""
+            st.markdown(f"**{u['Ref']}**{risk_label} — {u['Customer']}  \nDeadline: **{u['Deadline']}** | Priority: {u['Priority']} | Status: {u['Status']}")
 
 st.divider()
 
